@@ -140,16 +140,15 @@ module Raven
     def add_exception_interface(exc)
       interface(:exception) do |exc_int|
         exceptions = exception_chain_to_array(exc)
-        backtraces = Set.new
+        # backtraces = Set.new
         exc_int.values = exceptions.map do |e|
           SingleExceptionInterface.new do |int|
             int.type = e.class.to_s
             int.value = e.to_s
-            int.module = e.class.to_s.split('::')[0...-1].join('::')
+            int.module = int.type.split('::')[0...-1].join('::')
 
             int.stacktrace =
-              if e.backtrace && !backtraces.include?(e.backtrace.object_id)
-                backtraces << e.backtrace.object_id
+              if e.backtrace
                 StacktraceInterface.new do |stacktrace|
                   stacktrace.frames = stacktrace_interface_from(e.backtrace)
                 end
@@ -238,17 +237,14 @@ module Raven
     end
 
     def exception_chain_to_array(exc)
-      if exc.respond_to?(:cause) && exc.cause
-        exceptions = [exc]
-        while exc.cause
-          exc = exc.cause
-          break if exceptions.any? { |e| e.object_id == exc.object_id }
-          exceptions << exc
-        end
-        exceptions.reverse!
-      else
-        [exc]
+      return [exc] unless exc.respond_to?(:cause) && exc.cause
+      exceptions = [exc]
+      while exc.cause
+        exc = exc.cause
+        break if exceptions.any? { |e| e == exc }
+        exceptions << exc
       end
+      exceptions.reverse!
     end
 
     def list_gem_specs
